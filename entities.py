@@ -48,12 +48,16 @@ class Minion(Entity):
     def take_damage(self) -> None:
         "minions die upon taking damage"
         self.board[vector_to_tuple(self.position)].remove_thing()
+        self.board.minion_count -= 0 
 
 
 class Mech(Entity):
     def __init__(self, board: Board, position: Vector, orientation: Vector, command_line: list) -> None:
         super().__init__(board, position, orientation)
         self.command_line = command_line
+        self.curr_slot = 1
+        self.execute()
+
 
     def take_damage(self) -> None:
         # this will be implemented much later
@@ -115,3 +119,34 @@ class Mech(Entity):
 
     def hexmatic_aimbot(self, level: int) -> None:
         pass
+    cardtype = {"sk": skewer,
+            "r": ripsaw,
+            "sc": scythe,
+            "ft": fuel_tank,
+            'a': hexmatic_aimbot,
+            'm': memory_core,
+            'cl':chain_lightning,
+            "b": blaze,
+            "c": cyclotron,
+            "f": flamespitter,
+            "o": omnistomp,
+            "sp": speed,
+            }
+    def execute(self):
+        if self.curr_slot == 7 and self.board.minion_count == 0:
+            print(f"This is a winning command line: {self.text}")
+            return
+        command = self.command_line[self.curr_slot - 1]
+        try:
+            level = int(command[-1])
+            card = command.replace(str(level), '')
+        except ValueError:
+            level = 1
+            card = command
+        self.cardtype[card](level)
+        self.curr_slot += 1
+        if card in ["o",  "c",  "sp"]:
+            return
+        # if self.curr_slot < 7:
+            # print(f"Call number: BLANK, number of minions remaining: {len(self.temp_minions)}, locations of the minions: {self.temp_minions}, Commands executed so far: {self.text}")
+        self.execute()

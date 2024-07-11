@@ -25,6 +25,7 @@ class Board:
         :param boardspace: a 2D NDArray -- it doesn't matter what it contains
         """
         self.board = np.empty(boardspace.shape, dtype=Tile)
+        self.minion_count = 0 
         for index in np.ndindex(self.board.shape):
             self.board[index] = Tile(tuple_to_vector(index))
 
@@ -50,3 +51,4 @@ class Board:
         for coordinate in coordinates:
             new_minion = Minion(coordinate, np.array([[1], [0]]))
             self.board[vector_to_tuple(coordinate)].place_thing(new_minion)
+            self.minion_count += 1 
