@@ -1,9 +1,10 @@
 import numpy as np
 from types import Vector
+from board import Board
 
 def tuple_to_vector(input_tuple: tuple) -> Vector:
     """
-    Converts a tuple into a 2x1 vector (literally shape (2,1), not (2))
+    Converts a tuple into a 2x1 vector (shape (2, 1))
     :param input_tuple: tuple of length 2
     :return: 2x1 vector
     """
@@ -22,7 +23,7 @@ def rotate(input_vector: Vector, angle: int) -> Vector:
     """
     Performs a linear transformation that rotates a 2x1 vector about the origin. Input only right angles.
     :param input_vector: 2x1 vector
-    :param angle: -360, -270, -180, -90, 0, 90, 180, 270, or 360
+    :param angle: -360, -270, -180, -90, 0, 90, 180, 270, or 360 (degrees)
     :return: 2x1 vector
     """
     if angle == 90 or angle == -270:
@@ -36,7 +37,7 @@ def rotate(input_vector: Vector, angle: int) -> Vector:
         return np.matmul(rotation_matrix, input_vector)
     elif angle == 360 or angle == 0 or angle == -360:
         # literally don't rotate
-        pass
+        return input_vector
 
 def oob_check(board: Board, location: Vector) -> bool:
     """
@@ -51,3 +52,10 @@ def oob_check(board: Board, location: Vector) -> bool:
         return False
     else:
         return True
+
+def prompt(num_options: int) -> int:
+    """
+    This will handle "user choices" but more importantly engine logic.
+    :param num_options: how many choices can be made here
+    :return: an integer that represents the selected choice
+    """

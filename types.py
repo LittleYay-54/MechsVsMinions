@@ -4,4 +4,5 @@ import numpy as np
 Vector = np._typing.NDArray[np.int_]
 # typing that I will use to represent 2xn "matrices" of data that really just store multiple vectors
 Matrix = np._typing.NDArray[np.int_]
+
 # they are literally the same but idc
