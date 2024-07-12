@@ -1,21 +1,22 @@
 from abc import ABC, abstractmethod
 from board import Board
-from types import Vector
-from functions import tuple_to_vector, vector_to_tuple, oob_check, rotate
-
+from custom_types import Vector
+from auxiliary_functions import tuple_to_vector, vector_to_tuple, oob_check, rotate
 
 
 class Entity(ABC):
-    """Minion, mech, possibly bomb or boss even?"""
+    """Minion, mech, possibly bomb or boss even? Anything that can be placed on a board tile."""
     def __init__(self, board: Board, position: Vector, orientation: Vector) -> None:
-        """Position should be a 2x1 vector.
-        Orientation should also be a 2x1 vector such that
-        a forward move "adds" the orientation to the position.
-        i.e, position could be [[1], [2]], and an orientation of [[0], [-1]] would indicate
-        "downward facing" and a forward move would change the position to [[1], [1]]"""
+        """
+        Creates the entity (initializing the position and orientation), and places it onto the board.
+        :param board: the Board object on which the object is placed on
+        :param position: Vector representing (x,y) coordinates, except 0-indexed
+        :param orientation: Vector representing position change after a forward move, read custom_types.py for examples
+        """
         self.board = board
         self.position = position
         self.orientation = orientation
+        self.board[vector_to_tuple(self.position)].place_thing(self)
 
     def move(self, direction: Vector) -> None:
         tentative_position = self.position + direction
