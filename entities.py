@@ -98,9 +98,7 @@ class Mech(Entity):
             self.damage(self.position + [[-i], [i]])
             self.damage(self.position + [[i], [-i]])
             self.damage(self.position + [[-i], [-i]])
-
-        # turn functionality
-
+            
     def chain_lightning(self, level: int, target: int) -> None:
         pass
     def cl_chain(self, position: Vector, target: int) -> bool:
@@ -164,6 +162,8 @@ class TristanaEngine(Mech):
         super().__init__(board, position, orientation, command_line)
         self.curr_slot = curr_slot
         self.execute()
+    def turn(self, level):
+        pass
     def blaze(self, level: int) -> None:
         super().blaze(level)
 
@@ -178,11 +178,7 @@ class TristanaEngine(Mech):
             TristanaEngine(self.board, position, self.orientation, self.command_line, self.curr_slot+1)
 
     def cyclotron(self, level: int) -> None:
-        for i in range(1, level+1):
-            self.damage(self.position + [[i], [i]])
-            self.damage(self.position + [[-i], [i]])
-            self.damage(self.position + [[i], [-i]])
-            self.damage(self.position + [[-i], [-i]])
+        super().cyclotron(level)
 
         # turn functionality
 
@@ -224,7 +220,12 @@ class TristanaEngine(Mech):
         pass
 
     def hexmatic_aimbot(self, level: int) -> None:
-        pass
+        for x,y in product(range(self.position[0][0]-level, self.position[0][0]+level), range(self.position[1][1]-level, self.position[1][1]+level)):
+            if type(self.board[[x],[y]].thing) == Minion:
+                branch = TristanaEngine(self.board, self.position, self.orientation, self.command_line[:self.curr_slot], self.curr_slot)
+                branch.damage([[x],[y]])
+                TristanaEngine(branch.board, branch.position, branch.orientation, branch.command_line[self.curr_slot:], self.curr_slot+1)
+ 
     cardtype = {"sk": skewer,
             "r": ripsaw,
             "sc": scythe,
@@ -262,7 +263,8 @@ class PlayerMech(Mech):
         super().__init__(board, position, orientation, command_line)
         self.curr_slot = 1
         self.execute()
-
+    def turn(self, level):
+        pass
 
     def take_damage(self) -> None:
         # this will be implemented much later
