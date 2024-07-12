@@ -1,5 +1,5 @@
 import numpy as np
-from types import Vector
+from types_1 import Vector
 from board import Board
 
 def tuple_to_vector(input_tuple: tuple) -> Vector:

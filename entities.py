@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from board import Board
-from types import Vector
+from types_1 import Vector
+from copy import deepcopy
+from itertools import product
 from functions import tuple_to_vector, vector_to_tuple, oob_check, rotate
 
 
@@ -54,8 +56,9 @@ class Minion(Entity):
 class Mech(Entity):
     def __init__(self, board: Board, position: Vector, orientation: Vector, command_line: list) -> None:
         super().__init__(board, position, orientation)
-        self.command_line = command_line
+        self.board = deepcopy(board)
         self.curr_slot = 1
+        self.command_line = command_line
         self.execute()
 
 
@@ -69,7 +72,7 @@ class Mech(Entity):
         self.damage(self.position + rotate(self.orientation, -90))
         self.damage(self.position + rotate(self.orientation, 90))
 
-    def fuel_tank(self, level: int) -> None:
+    def fuel_tank(self, level: int, rotation) -> None:
         pass
 
     def flamespitter(self, level: int) -> None:
@@ -86,6 +89,89 @@ class Mech(Entity):
                 self.damage(pointer + rotate(self.orientation, -90))
                 self.damage(pointer + rotate(self.orientation, 90))
 
+    def speed(self, level: int, distance: int) -> None:
+        pass
+
+    def cyclotron(self, level: int) -> None:
+        for i in range(1, level+1):
+            self.damage(self.position + [[i], [i]])
+            self.damage(self.position + [[-i], [i]])
+            self.damage(self.position + [[i], [-i]])
+            self.damage(self.position + [[-i], [-i]])
+
+        # turn functionality
+
+    def chain_lightning(self, level: int, target: int) -> None:
+        pass
+    def cl_chain(self, position: Vector, target: int) -> bool:
+        pass
+    
+
+    
+
+    def skewer(self, level: int) -> None:
+        for i in range(level):
+            self.move(self.orientation)
+        #shield functonality eventually
+
+    def scythe(self, level: int) -> None:
+        pass
+
+    def ripsaw(self, level: int) -> None:
+        pass
+
+    def omnistomp(self, level: int) -> None:
+        pass
+
+    def memory_core(self, level: int) -> None:
+        pass
+
+    def hexmatic_aimbot(self, level: int) -> None:
+        pass
+    cardtype = {"sk": skewer,
+            "r": ripsaw,
+            "sc": scythe,
+            "ft": fuel_tank,
+            'a': hexmatic_aimbot,
+            'm': memory_core,
+            'cl':chain_lightning,
+            "b": blaze,
+            "c": cyclotron,
+            "f": flamespitter,
+            "o": omnistomp,
+            "sp": speed,
+            }
+    def execute(self):
+        if self.curr_slot == 7 and self.board.minion_count == 0:
+            print(f"This is a winning command line: {self.text}")
+            return
+        command = self.command_line[self.curr_slot - 1]
+        try:
+            level = int(command[-1])
+            card = command.replace(str(level), '')
+        except ValueError:
+            level = 1
+            card = command
+        self.cardtype[card](level)
+        self.curr_slot += 1
+        if card in ["o",  "c",  "sp"]:
+            return
+        # if self.curr_slot < 7:
+            # print(f"Call number: BLANK, number of minions remaining: {len(self.temp_minions)}, locations of the minions: {self.temp_minions}, Commands executed so far: {self.text}")
+        self.execute()
+class TristanaEngine(Mech):
+    def __init__(self, board: Board, position: Vector, orientation: Vector, command_line: list, curr_slot: int = 1) -> None:
+        super().__init__(board, position, orientation, command_line)
+        self.curr_slot = curr_slot
+        self.execute()
+    def blaze(self, level: int) -> None:
+        super().blaze(level)
+
+    def fuel_tank(self, level: int) -> None:
+        pass
+
+    def flamespitter(self, level: int) -> None:
+        super().flamespitter(level)
     def speed(self, level: int) -> None:
         pass
 
@@ -99,11 +185,27 @@ class Mech(Entity):
         # turn functionality
 
     def chain_lightning(self, level: int) -> None:
-        pass
+        chain = 0
+        for target in [1,2,3]:
+            location = rotate(self.orientation, (target - 2)*90) + self.position
+            if type(self.board[location].thing) == Minion:
+                branch = TristanaEngine(self.board, self.position, self.orientation, self.command_line[self.curr_slot:], self.curr_slot)
+                branch.damage(location)
+                while chain <= 1+(level-1)*2:
+                    branch.cl_chain(location, self.command_line)
+        
+    def cl_chain(self, position: Vector, command_line) -> None:
+        for target in position + product((-1,1),(-1,1)):
+            if type(self.board[target].thing) == Minion:
+                branch = TristanaEngine(self.board, self.position, self.orientation, self.command_line[self.curr_slot:], self.curr_slot)
+                branch.damage(target)
+                TristanaEngine(branch.board, branch.position, branch.orientation, command_line[:branch.curr_slot], self.curr_slot+ 1)
+            else:
+                TristanaEngine(self.board, self.position, self.orientation, command_line[:self.curr_slot], self.curr_slot+ 1)
+
 
     def skewer(self, level: int) -> None:
-        for i in range(level):
-            self.move(self.orientation)
+        super().skewer(level)
 
     def scythe(self, level: int) -> None:
         pass

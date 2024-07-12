@@ -27,7 +27,7 @@ class Board:
         self.board = np.empty(boardspace.shape, dtype=Tile)
         self.minion_count = 0 
         for index in np.ndindex(self.board.shape):
-            self.board[index] = Tile(tuple_to_vector(index))
+            self.board[[index[0], index[1]]] = Tile(tuple_to_vector([index[0], index[1]]))
 
     def oil_squares(self, oiled_squares: Matrix) -> None:
         """
@@ -52,3 +52,4 @@ class Board:
             new_minion = Minion(coordinate, np.array([[1], [0]]))
             self.board[vector_to_tuple(coordinate)].place_thing(new_minion)
             self.minion_count += 1 
+            
