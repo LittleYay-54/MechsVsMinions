@@ -187,21 +187,23 @@ class TristanaEngine(Mech):
         # turn functionality
 
     def chain_lightning(self, level: int) -> None:
-        chain = 0
         for target in [1,2,3]:
             location = rotate(self.orientation, (target - 2)*90) + self.position
             if type(self.board[location].thing) == Minion:
                 branch = TristanaEngine(self.board, self.position, self.orientation, self.command_line[self.curr_slot:], self.curr_slot)
                 branch.damage(location)
-                while chain <= 1+(level-1)*2:
-                    branch.cl_chain(location, self.command_line)
+                max_depth = 1+(level-1)*2
+                branch.cl_chain(location, self.command_line, 0, max_depth)
+
         
-    def cl_chain(self, position: Vector, command_line) -> None:
+    def cl_chain(self, position: Vector, command_line, current_depth, max_depth) -> None:
+        if current_depth < max_depth:
+            return
         for target in position + product((-1,1),(-1,1)):
             if type(self.board[target].thing) == Minion:
                 branch = TristanaEngine(self.board, self.position, self.orientation, self.command_line[self.curr_slot:], self.curr_slot)
                 branch.damage(target)
-                TristanaEngine(branch.board, branch.position, branch.orientation, command_line[:branch.curr_slot], self.curr_slot+ 1)
+                branch.cl_chain(target, command_line, current_depth+1, max_depth)
             else:
                 TristanaEngine(self.board, self.position, self.orientation, command_line[:self.curr_slot], self.curr_slot+ 1)
 
