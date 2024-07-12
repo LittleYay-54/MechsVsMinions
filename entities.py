@@ -56,11 +56,9 @@ class Minion(Entity):
 class Mech(Entity):
     def __init__(self, board: Board, position: Vector, orientation: Vector, command_line: list) -> None:
         super().__init__(board, position, orientation)
-        self.board = deepcopy(board)
         self.curr_slot = 1
+        self.board = deepcopy(board)
         self.command_line = command_line
-        self.execute()
-
 
     def take_damage(self) -> None:
         # this will be implemented much later
@@ -140,8 +138,8 @@ class Mech(Entity):
             "sp": speed,
             }
     def execute(self):
-        if self.curr_slot == 7 and self.board.minion_count == 0:
-            print(f"This is a winning command line: {self.text}")
+        if self.curr_slot == len(self.command_line) and self.board.minion_count == 0:
+            print(f"This is a winning command line: {self.command_line}")
             return
         command = self.command_line[self.curr_slot - 1]
         try:
@@ -160,8 +158,7 @@ class Mech(Entity):
 class TristanaEngine(Mech):
     def __init__(self, board: Board, position: Vector, orientation: Vector, command_line: list, curr_slot: int = 1) -> None:
         super().__init__(board, position, orientation, command_line)
-        self.curr_slot = curr_slot
-        self.execute()
+        self.curr_slot = curr_slot    
     def turn(self, level):
         pass
     def blaze(self, level: int) -> None:
@@ -175,7 +172,7 @@ class TristanaEngine(Mech):
     def speed(self, level: int) -> None:
         for option in [1,2]:
             position = self.position + self.orientation*((level-1)*2+option)
-            TristanaEngine(self.board, position, self.orientation, self.command_line, self.curr_slot+1)
+            TristanaEngine(self.board, position, self.orientation, self.command_line, self.curr_slot+1).execute(self.curr_slot+1)
 
     def cyclotron(self, level: int) -> None:
         super().cyclotron(level)
@@ -185,8 +182,8 @@ class TristanaEngine(Mech):
     def chain_lightning(self, level: int) -> None:
         for target in [1,2,3]:
             location = rotate(self.orientation, (target - 2)*90) + self.position
-            if type(self.board[location].thing) == Minion:
-                branch = TristanaEngine(self.board, self.position, self.orientation, self.command_line[self.curr_slot:], self.curr_slot)
+            if type(self.board[vector_to_tuple(location)].thing) == Minion:
+                branch = deepcopy(self)
                 branch.damage(location)
                 max_depth = 1+(level-1)*2
                 branch.cl_chain(location, self.command_line, 0, max_depth)
@@ -194,14 +191,15 @@ class TristanaEngine(Mech):
         
     def cl_chain(self, position: Vector, command_line, current_depth, max_depth) -> None:
         if current_depth < max_depth:
+            TristanaEngine(self.board, self.position, self.orientation, command_line, self.curr_slot+1).execute(self.curr_slot+1)
             return
         for target in position + product((-1,1),(-1,1)):
-            if type(self.board[target].thing) == Minion:
-                branch = TristanaEngine(self.board, self.position, self.orientation, self.command_line[self.curr_slot:], self.curr_slot)
+            if type(self.board[vector_to_tuple(target)].thing) == Minion:
+                branch = deepcopy(self)
                 branch.damage(target)
                 branch.cl_chain(target, command_line, current_depth+1, max_depth)
             else:
-                TristanaEngine(self.board, self.position, self.orientation, command_line[:self.curr_slot], self.curr_slot+ 1)
+                TristanaEngine(self.board, self.position, self.orientation, command_line, self.curr_slot+1).execute(self.curr_slot+1)
 
 
     def skewer(self, level: int) -> None:
@@ -221,10 +219,10 @@ class TristanaEngine(Mech):
 
     def hexmatic_aimbot(self, level: int) -> None:
         for x,y in product(range(self.position[0][0]-level, self.position[0][0]+level), range(self.position[1][1]-level, self.position[1][1]+level)):
-            if type(self.board[[x],[y]].thing) == Minion:
-                branch = TristanaEngine(self.board, self.position, self.orientation, self.command_line[:self.curr_slot], self.curr_slot)
+            if type(self.board[[[x],[y]]].thing) == Minion:
+                branch = deepcopy(self)
                 branch.damage([[x],[y]])
-                TristanaEngine(branch.board, branch.position, branch.orientation, branch.command_line[self.curr_slot:], self.curr_slot+1)
+                TristanaEngine(branch.board, branch.position, branch.orientation, branch.command_line, self.curr_slot+1).execute(self.curr_slot +1)
  
     cardtype = {"sk": skewer,
             "r": ripsaw,
@@ -241,7 +239,7 @@ class TristanaEngine(Mech):
             }
     def execute(self):
         if self.curr_slot == 7 and self.board.minion_count == 0:
-            print(f"This is a winning command line: {self.text}")
+            print(f"This is a winning command line: {self.CMD}")
             return
         command = self.command_line[self.curr_slot - 1]
         try:
@@ -261,7 +259,6 @@ class TristanaEngine(Mech):
 class PlayerMech(Mech):
     def __init__(self, board: Board, position: Vector, orientation: Vector, command_line: list) -> None:
         super().__init__(board, position, orientation, command_line)
-        self.curr_slot = 1
         self.execute()
     def turn(self, level):
         pass
