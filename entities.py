@@ -173,7 +173,9 @@ class TristanaEngine(Mech):
     def flamespitter(self, level: int) -> None:
         super().flamespitter(level)
     def speed(self, level: int) -> None:
-        pass
+        for option in [1,2]:
+            position = self.position + self.orientation*((level-1)*2+option)
+            TristanaEngine(self.board, position, self.orientation, self.command_line, self.curr_slot+1)
 
     def cyclotron(self, level: int) -> None:
         for i in range(1, level+1):
@@ -206,6 +208,92 @@ class TristanaEngine(Mech):
 
     def skewer(self, level: int) -> None:
         super().skewer(level)
+
+    def scythe(self, level: int) -> None:
+        pass
+
+    def ripsaw(self, level: int) -> None:
+        pass
+
+    def omnistomp(self, level: int) -> None:
+        pass
+
+    def memory_core(self, level: int) -> None:
+        pass
+
+    def hexmatic_aimbot(self, level: int) -> None:
+        pass
+    cardtype = {"sk": skewer,
+            "r": ripsaw,
+            "sc": scythe,
+            "ft": fuel_tank,
+            'a': hexmatic_aimbot,
+            'm': memory_core,
+            'cl':chain_lightning,
+            "b": blaze,
+            "c": cyclotron,
+            "f": flamespitter,
+            "o": omnistomp,
+            "sp": speed,
+            }
+    def execute(self):
+        if self.curr_slot == 7 and self.board.minion_count == 0:
+            print(f"This is a winning command line: {self.text}")
+            return
+        command = self.command_line[self.curr_slot - 1]
+        try:
+            level = int(command[-1])
+            card = command.replace(str(level), '')
+        except ValueError:
+            level = 1
+            card = command
+        self.cardtype[card](level)
+        self.curr_slot += 1
+        if card in ["o",  "c",  "sp"]:
+            return
+        # if self.curr_slot < 7:
+            # print(f"Call number: BLANK, number of minions remaining: {len(self.temp_minions)}, locations of the minions: {self.temp_minions}, Commands executed so far: {self.text}")
+        self.execute()
+        
+class PlayerMech(Mech):
+    def __init__(self, board: Board, position: Vector, orientation: Vector, command_line: list) -> None:
+        super().__init__(board, position, orientation, command_line)
+        self.curr_slot = 1
+        self.execute()
+
+
+    def take_damage(self) -> None:
+        # this will be implemented much later
+        pass
+
+    def blaze(self, level: int) -> None:
+        super().blaze(level)
+
+    def fuel_tank(self, level: int, rotation) -> None:
+        pass
+
+    def flamespitter(self, level: int) -> None:
+        super().flamespitter(level)
+
+    def speed(self, level: int, distance: int) -> None:
+        pass
+
+    def cyclotron(self, level: int) -> None:
+        super().cyclotron(level)
+
+        # turn functionality
+
+    def chain_lightning(self, level: int, target: int) -> None:
+        pass
+    def cl_chain(self, position: Vector, target: int) -> bool:
+        pass
+    
+
+    
+
+    def skewer(self, level: int) -> None:
+        super().skewer(level)
+        #shield functonality eventually
 
     def scythe(self, level: int) -> None:
         pass
