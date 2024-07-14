@@ -28,5 +28,3 @@ Matrix = Annotated[NDArray[np.int_], (..., 2)]
 # This type will only be used in the board __init__ function type hint:
 NDArray2D = Annotated[NDArray[...], (..., ...)]
 # Just a 2D NDArray with an arbitrary length and width, and containing any data type.
-
-

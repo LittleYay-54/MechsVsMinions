@@ -59,3 +59,10 @@ def prompt(num_options: int) -> int:
     :param num_options: how many choices can be made here
     :return: an integer that represents the selected choice
     """
+
+
+class CustomError(Exception):
+    """Used to raise an Error with whatever message you want"""
+    def __init__(self, message="An error occurred - good luck"):
+        self.message = message
+        super().__init__(self.message)
