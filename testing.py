@@ -1,25 +1,14 @@
 import numpy as np
-
-new_array = np.array([1, 2])
-print(new_array.shape)
-print(new_array.shape == (2))
-print(new_array.shape == (2,))
-
-# ok I'm confused
-
-
-from typing import NewType, Annotated
-greeting = Annotated[str, "Welcome Message"]
-a: greeting = "Hello"
-print(greeting)
-
-
-import numpy as np
+from numpy import ndarray, dtype
 from numpy.typing import NDArray
-from typing import Tuple
-from custom_types import Vector, Matrix, NDArray2D
-from entities import Entity, Minion
-from auxiliary_functions import tuple_to_vector, vector_to_tuple
+from typing import Tuple, TYPE_CHECKING
+from custom_types import NDArray2D
+
+# This is for static type-checking
+# Your IDE will interpret this as true, but it won't be true at run-time
+# It's only for the type hint in Tile.place_thing()
+if TYPE_CHECKING:
+    from entities import Entity
 
 
 class Tile:
@@ -39,7 +28,7 @@ class Tile:
         """
         self.oil = True
 
-    def place_thing(self, thing: Entity) -> None:
+    def place_thing(self, thing: 'Entity') -> None:
         """
         places an Entity on the tile
         :param thing: an Entity
@@ -54,58 +43,39 @@ class Tile:
         """
         self.thing = None
 
+
 class Board:
     def __init__(self, boardspace: NDArray2D) -> None:
         """
         Creates a board object with the same shape as an input NDArray.
         :param boardspace: a 2D NDArray of the desired shape -- it doesn't matter what it actually contains
         """
-        # I don't understand what this following code does:
-        def create_tile():
+        # makes new array full of new Tiles
+        def create_tile(x, y):
             return Tile()
+
+        # if the code is changed such that the Tiles know their own location, then use this function instead:
+        # def create_tile(x, y):
+        #     return Tile(x, y)
 
         vectorized_create_tile = np.vectorize(create_tile, otypes=[object])
 
-        self.board: NDArray[Tile] = vectorized_create_tile(*np.indices(boardspace.shape))
-
-        # def create_tile(x, y):
-        #     return Tile(x, y)  # Assuming Tile constructor accepts position
-        #
-        # vectorized_create_tile = np.vectorize(create_tile, otypes=[object])
-        #
-        # indices = np.indices(boardspace.shape)
-        # self.board = vectorized_create_tile(indices[0], indices[1])
+        self.board_array: NDArray[Tile] = np.fromfunction(vectorized_create_tile, boardspace.shape, dtype=object)
 
     def __getitem__(self, index: Tuple[int, int]) -> Tile:
         """
-        This dunder method allows you to index the board directly
+        This dunder method allows you to index the board object directly
         :param index: a tuple of 2 ints, (x, y) coordinates
         :return: the Tile object that is stored at that position
         """
-        return self.board[index]
-
-    def oil_squares(self, oiled_squares: Matrix) -> None:
-        """
-        Spills oil upon a specified list of squares on the board.
-        :param oiled_squares: A Nx2 "Matrix", where the row "Vectors" represent coordinate pairs
-        :return: None
-        """
-        coordinates = [oiled_squares[i, :] for i in range(oiled_squares.shape[0])]
-        for coordinate in coordinates:
-            self.board[vector_to_tuple(coordinate)].spill_oil()
-
-    def spawn_minions(self, minion_squares: Matrix) -> None:
-        """
-        Spawns minions on a specified list of squares of the board.
-        :param minion_squares: A Nx2 "Matrix", where the row "Vectors" represent coordinate pairs
-        :return: None
-        """
-        coordinates = [minion_squares[i, :] for i in range(minion_squares.shape[0])]
-        for coordinate in coordinates:
-            new_minion = Minion(self, coordinate, np.array([1, 0]))  # filler orientation
-            self.board[vector_to_tuple(coordinate)].place_thing(new_minion)
+        # My IDE does not like the return type; it thinks it's an ndarray[Any, dtype[Tile]] instead of a Tile object
+        # idk why
+        return self.board_array[index]
 
 
-example_boardspace: NDArray = np.zeros((6, 6))
-myboard: Board = Board(example_boardspace)
+board_area = np.zeros((6, 6))
+newboard = Board(board_area)
+print(newboard.board_array)
+print(newboard[1,2].thing)
+
 
