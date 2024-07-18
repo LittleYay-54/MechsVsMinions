@@ -1,6 +1,8 @@
 import numpy as np
 from custom_types import Vector
 from board import Board
+from typing import Callable
+
 
 def tuple_to_vector(input_tuple: tuple) -> Vector:
     """
@@ -39,6 +41,7 @@ def rotate(input_vector: Vector, angle: int) -> Vector:
         # literally don't rotate
         return input_vector
 
+
 def oob_check(board: Board, location: Vector) -> bool:
     """
     Checks if a square exists on the board.
@@ -53,12 +56,19 @@ def oob_check(board: Board, location: Vector) -> bool:
     else:
         return True
 
-def prompt(num_options: int) -> int:
-    """
-    This will handle "user choices" but more importantly engine logic.
-    :param num_options: how many choices can be made here
-    :return: an integer that represents the selected choice
-    """
+
+class Prompt:
+    """Idk what I'm doing"""
+    def __init__(self, num_options, executable: Callable[[int], None]):
+        """
+        This class's sole purpose is to store functions that the engine/player can execute depending on a choice,
+        either from the engine or the player
+        :param num_options: the number of possible options
+        :param executable: the function (probably with a match statement) that will accept an int
+        (in the range of num_options) and act accordingly
+        """
+        self.num_options = num_options
+        self.executable = executable
 
 
 class CustomError(Exception):
