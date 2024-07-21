@@ -1,12 +1,12 @@
 import numpy as np
 from numpy import ndarray, dtype
 from numpy.typing import NDArray
-from typing import Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 from custom_types import NDArray2D
 
 # This is for static type-checking
 # Your IDE will interpret this as true, but it won't be true at run-time
-# It's only for the type hint in Tile.place_thing()
+# It's only for the type hints in Tile.place_thing()
 if TYPE_CHECKING:
     from entities import Entity
 
@@ -42,6 +42,46 @@ class Tile:
         :return: None
         """
         self.thing = None
+
+    def has_minion(self) -> bool:
+        """
+        checks if the Tile has a Minion on it
+        :return: True if there's a Minion, false otherwise
+        """
+        if self.thing.faction == 'Minions':
+            return True
+        else:
+            return False
+
+    def has_friendly(self) -> bool:
+        """
+        checks if the Tile has a friendly Entity on it (i.e. Mech or Bomb)
+        :return: True if there's a Mech or Bomb, false otherwise
+        """
+        if self.thing.faction == 'Mechs':
+            return True
+        else:
+            return False
+
+    def has_wall(self) -> bool:
+        """
+        checks if the Tile has a Wall on it
+        :return: True if there's a Wall, false otherwise
+        """
+        if self.thing.faction == 'Neutral':
+            return True
+        else:
+            return False
+
+    def is_empty(self) -> bool:
+        """
+        checks if the Tile doesn't have any Entity on it
+        :return: True if there's nothing on the Tile, false otherwise
+        """
+        if self.thing is None:
+            return True
+        else:
+            return False
 
 
 class Board:

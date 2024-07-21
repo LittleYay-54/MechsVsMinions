@@ -1,7 +1,14 @@
+from __future__ import annotations
 import numpy as np
 from custom_types import Vector
 from board import Board
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
+
+# This is for static type-checking
+# Your IDE will interpret this as true, but it won't be true at run-time
+# It's only for the type hints in Prompt.__init__()
+if TYPE_CHECKING:
+    from entities import Mech
 
 
 def tuple_to_vector(input_tuple: tuple) -> Vector:
@@ -49,9 +56,9 @@ def oob_check(board: Board, location: Vector) -> bool:
     :param location: the coordinates of the square as a 2x1 column vector
     :return: True if the square exists, False if not
     """
-    if location[0][0] < 0 or location[0][0] > len(board[0]) - 1:
+    if location[0][0] < 0 or location[0][0] > len(board.board_array[0]) - 1:
         return False
-    elif location[1][0] < 0 or location[1][0] > len(board[1]) - 1:
+    elif location[1][0] < 0 or location[1][0] > len(board.board_array[1]) - 1:
         return False
     else:
         return True
@@ -59,7 +66,7 @@ def oob_check(board: Board, location: Vector) -> bool:
 
 class Prompt:
     """Idk what I'm doing"""
-    def __init__(self, num_options, executable: Callable[[int], None]):
+    def __init__(self, num_options: int, executable: Callable[['Mech', int], None | Prompt]):
         """
         This class's sole purpose is to store functions that the engine/player can execute depending on a choice,
         either from the engine or the player
@@ -67,12 +74,12 @@ class Prompt:
         :param executable: the function (probably with a match statement) that will accept an int
         (in the range of num_options) and act accordingly
         """
-        self.num_options = num_options
-        self.executable = executable
+        self.num_options: int = num_options
+        self.executable: Callable[['Mech', int], None | Prompt] = executable
 
 
 class CustomError(Exception):
     """Used to raise an Error with whatever message you want"""
     def __init__(self, message="An error occurred - good luck"):
-        self.message = message
+        self.message: str = message
         super().__init__(self.message)

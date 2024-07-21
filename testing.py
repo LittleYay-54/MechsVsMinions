@@ -1,4 +1,5 @@
 from itertools import combinations
+from typing import Callable
 
 def a(num: int, c: bool):
     def b():
@@ -43,5 +44,45 @@ b = [1]
 print(recursion_test(b, 0))
 print(b)
 
-n = ([1, 2], [2, 1], [1, 2], [2])
-print(set(n))
+# n = ([1, 2], [2, 1], [1, 2], [2])
+#
+# for i in range(3):
+#     b = int(input("Pick an Index (0-3):"))
+#     print(n[b])
+
+
+class Dog:
+    def __init__(self, name: str, age: int) -> None:
+        self.name: str = name
+        self.age: int = age
+
+    def bark(self) -> None:
+        print(self.name)
+
+    def future_bark(self) -> Callable[[], None]:
+        def func():
+            self.bark()
+        return func
+
+
+for name, age in zip(['Bob', 'Alice', 'Carl'], [1, 2, 3]):
+    dog = Dog(name, age)
+    b = Dog.future_bark(dog)
+    b()
+
+
+
+
+billy = 6
+
+
+def modify_billy():
+    global billy
+    billy = 7
+
+
+print(billy)
+modify_billy()
+print(billy)
+
+

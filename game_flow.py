@@ -1,4 +1,4 @@
-from auxiliary_functions import vector_to_tuple, oob_check
+from auxiliary_functions import vector_to_tuple, oob_check, Prompt
 from typing import List
 from custom_types import Matrix
 from board import Board
@@ -41,9 +41,13 @@ def initialize_starting_board(board: Board, minion_squares: Matrix, oil_squares:
             board[vector_to_tuple(oil_coordinate)].spill_oil()
 
 
-def place_player_mechs(board: Board, players: List[Mech]) -> None:
+players: List[Mech] = []
+
+
+def place_player_mechs(board: Board, playing_mechs: List[Mech]) -> None:
     """Place player mechs"""
-    raise NotImplementedError
+    for item in playing_mechs:
+        players.append(item)
 
 
 # -- Gameplay --
@@ -62,7 +66,30 @@ def slot_cards():
     raise NotImplementedError
 
 
-def players_move():
-    """Players execute their command lines in order"""
-    raise NotImplementedError
+def players_move() -> None:
+    """
+    Players execute their command lines in order
+    :return: None
+    """
+    def execute_command_line(player: Mech):
+        for slot in range(1, 7):
+            possible_prompt: Prompt | None = player.execute_command_card(slot)
+            while isinstance(possible_prompt, Prompt):
+                if possible_prompt.num_options == 1:
+                    possible_prompt = possible_prompt.executable(player, 0)
+                else:
+                    # raise the input field
+                    choice: int = int(input(f"Please select a choice (1-{possible_prompt.num_options}"))
+                    possible_prompt = possible_prompt.executable(player, choice-1)
 
+    for player in players:
+        execute_command_line(player)
+
+
+def rotate_hourglass() -> None:
+    """
+    Shifts the order of the players by 1 upward, with the first player going to the back
+    :return: None
+    """
+    global players
+    players: list[Mech] = players[1:] + players[:1]
