@@ -1,5 +1,6 @@
 from itertools import combinations
 from typing import Callable
+import numpy as np
 
 def a(num: int, c: bool):
     def b():
@@ -86,3 +87,23 @@ modify_billy()
 print(billy)
 
 
+# q = np.array([1, 2])
+# w = np.array([2, 3])
+#
+# temp_arr = [q, w]
+# print(np.array([2, 4]) in temp_arr)
+
+new_arr = np.array([5, 8])
+new_arr_2 = new_arr + [1, 1]
+new_arr_2 += [1, 1]
+print(new_arr_2)
+print(new_arr)
+
+def append_to_list(target_list, element):
+    target_list.append(element)
+
+new_list = []
+append_to_list(new_list, 15)
+print(new_list)
+
+print(np.array((94, 44)))

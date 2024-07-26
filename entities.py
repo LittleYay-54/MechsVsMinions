@@ -3,9 +3,10 @@ import numpy as np
 from abc import ABC, abstractmethod
 from board import Tile, Board
 from custom_types import Vector
-from typing import Optional, List, Dict, Tuple, Callable
+from typing import Optional, List, Dict, Callable
 from auxiliary_functions import vector_to_tuple, oob_check, rotate, Prompt, CustomError
 from itertools import combinations, product
+from functools import partial
 
 
 class Entity(ABC):
@@ -59,6 +60,7 @@ class Entity(ABC):
         :param num_squares: number of movement steps
         :return: None
         """
+        ...
 
     def turn(self, angle: int) -> None:
         """
@@ -69,13 +71,28 @@ class Entity(ABC):
         self.orientation = rotate(self.orientation, angle)
 
     def damage(self, target_square: Vector) -> None:
+        """
+        An Entity inflicts damage onto another Entity if they are not part of the same faction.
+        :param target_square: the square (as a Vector) that the damaging Entity is targeting
+        :return: None
+        """
         if oob_check(self.board, target_square):
             if self.faction != self.board[vector_to_tuple(target_square)].thing.faction:
                 self.board[vector_to_tuple(target_square)].thing.take_damage()
 
+    def damage_multiple(self, target_squares: List[Vector]) -> None:
+        """
+        An Entity attempts to damage multiple squares at once (causing Entities on these squares to take damage
+        if they are not part of the same faction
+        :param target_squares: the list of squares (Vectors) that the damaging Entity is targeting
+        :return: None
+        """
+        for square in target_squares:
+            self.damage(square)
+
     @abstractmethod
     def take_damage(self):
-        """specify how different entities take damage (minions, mechs, boss, bomb)"""
+        """specify how different entities take damage (Minions, Mechs, Boss, Bomb)"""
         pass
 
 
@@ -96,8 +113,6 @@ class Wall(Entity):
         # this section of the code is to avoid mutable defaults
         if orientation is None:
             orientation = np.array([1, 0])
-        else:
-            orientation = np.array(orientation)  # Create a new array to avoid sharing
 
         super().__init__(board, position, orientation, 'Neutral')
         self.is_spiked = is_spiked
@@ -175,7 +190,7 @@ class Bomb(Entity):
     def move(self, direction: Vector, num_squares: int) -> None:
         """
         Attempts to move the Bomb in a direction a certain number of squares.
-        This only occurs due to a Mech pushing or towing it.
+        This only occurs due to a Mech pushing it (not towing it).
         If the bomb tries to move onto a Minion, it stomps the Minion, killing it, but also taking 1 damage.
         :param direction: Vector representing the direction in which the movement should occur
         :param num_squares: number of movement steps
@@ -190,23 +205,25 @@ class Bomb(Entity):
                 if self.board[vector_to_tuple(tentative_position)].is_empty():
                     # remove from current location, move to new location
                     self.raw_move(starting_position, tentative_position)
-                else:
-                    # if the space ahead has a Mech, then push it
-                    if self.board[vector_to_tuple(tentative_position)].has_friendly():
-                        # push the thing
-                        self.board[vector_to_tuple(tentative_position)].thing.move(direction, 1)
-                        # if it didn't get pushed into the edge, the space ahead should be empty, so move there
-                        if self.board[vector_to_tuple(tentative_position)].is_empty():
-                            # remove from current location, move to new location
-                            self.raw_move(starting_position, tentative_position)
-                    # if the space ahead has a Minion, then stomp it, and take damage
-                    elif self.board[vector_to_tuple(tentative_position)].has_minion():
-                        # kill the minion
-                        self.board[vector_to_tuple(tentative_position)].thing.take_damage()
-                        # take damage
-                        self.take_damage()
-                        # move there
+                # if the space ahead has a Mech, then push it
+                elif self.board[vector_to_tuple(tentative_position)].has_friendly():
+                    # push the thing
+                    self.board[vector_to_tuple(tentative_position)].thing.move(direction, 1)
+                    # if it didn't get pushed into the edge, the space ahead should be empty, so move there
+                    if self.board[vector_to_tuple(tentative_position)].is_empty():
+                        # remove from current location, move to new location
                         self.raw_move(starting_position, tentative_position)
+                # if the space ahead has a Minion, then stomp it, and take damage
+                elif self.board[vector_to_tuple(tentative_position)].has_minion():
+                    # kill the minion
+                    self.board[vector_to_tuple(tentative_position)].thing.take_damage()
+                    # take damage
+                    self.take_damage()
+                    # move there
+                    self.raw_move(starting_position, tentative_position)
+                # if the space has a wall, then do nothing
+                elif self.board[vector_to_tuple(tentative_position)].has_wall():
+                    pass
             remaining_moves -= 1
 
     def take_damage(self) -> None:
@@ -228,12 +245,19 @@ class Mech(Entity):
         super().__init__(board, position, orientation, 'Mechs')
         self.command_line: List[List[str, int]] = [['Empty', 1], ['Empty', 1], ['Empty', 1],
                                                    ['Empty', 1], ['Empty', 1], ['Empty', 1]]
+        self.prompt_stack: List[Prompt] = []
 
-    card_colors: Dict[str, str] = {'Scythe': 'blue', 'Skewer': 'blue', 'Ripsaw': 'blue',
-                                   'Fuel Tank': 'red', 'Blaze': 'red', 'Flamespitter': 'red',
-                                   'Cyclotron': 'yellow', 'Speed': 'yellow', 'Chain Lightning': 'yellow',
-                                   'Memory Core': 'green', 'Omnistomp': 'green', 'Hexmatic Aimbot': 'green',
-                                   'Empty': 'none'}
+    def stack_push(self, prompt):
+        """Pushes a prompt object to the top of the Mech's prompt stack"""
+        self.prompt_stack.append(prompt)
+
+    card_colors: Dict[str, str] = {
+        'Scythe': 'blue', 'Skewer': 'blue', 'Ripsaw': 'blue',
+        'Fuel Tank': 'red', 'Blaze': 'red', 'Flamespitter': 'red',
+        'Cyclotron': 'yellow', 'Speed': 'yellow', 'Chain Lightning': 'yellow',
+        'Memory Core': 'green', 'Omnistomp': 'green', 'Hexmatic Aimbot': 'green',
+        'Empty': 'none'
+    }
 
     def modify_command_line(self, slot: int, card: str, level: int = 1) -> None:
         """
@@ -254,59 +278,27 @@ class Mech(Entity):
         else:
             self.command_line[slot - 1] = [card, level]
 
-    def move(self, direction: Vector, num_squares: int) -> None:
-        """
-        Attempts to move the Mech in a certain direction a certain number of squares.
-        Moving onto a Minion stomps the Minion. Pushing and towing logic is contained as well
-        :param direction: Vector representing the direction in which the movement should occur
-        :param num_squares: number of movement steps
-        :return: None
-        """
-        remaining_moves: int = num_squares
-        starting_position: Vector = self.position
-        while remaining_moves > 0:
-            tentative_position = self.position + direction
-            if oob_check(self.board, tentative_position):
-                # if the space is not occupied, just move
-                if self.board[vector_to_tuple(tentative_position)].is_empty():
-                    # remove from current location, move to new location
-                    self.raw_move(starting_position, tentative_position)
-                else:
-                    # if the space ahead has a Mech or Bomb, then push it
-                    if self.board[vector_to_tuple(tentative_position)].has_friendly():
-                        # push the thing
-                        self.board[vector_to_tuple(tentative_position)].thing.move(direction, 1)
-                        # if it didn't get pushed into the edge, the space ahead should be empty, so move there
-                        if self.board[vector_to_tuple(tentative_position)].is_empty():
-                            # remove from current location, move to new location
-                            self.raw_move(starting_position, tentative_position)
-                    # if the space ahead has a Minion, then stomp it
-                    elif self.board[vector_to_tuple(tentative_position)].has_minion():
-                        # kill the minion
-                        self.board[vector_to_tuple(tentative_position)].thing.take_damage()
-                        # move there
-                        self.raw_move(starting_position, tentative_position)
-            remaining_moves -= 1
-
-    def take_damage(self) -> None:
-        """
-        Draws a damage card -- this will be implemented much later
-        :return: None
-        """
-        pass
-
-    def scan(self, radius, faction) -> List[Vector]:
+    def scan(self, radius: int, faction: str, towing: Optional[Vector] = None) -> List[Vector]:
         """
         'Scans' around the mech in a certain radius to check for certain types of Entities
         (either Minions or friendly Entities). A radius of 1 means 1 square in any direction, including diagonals.
         :param radius: int representing searching distance
         :param faction: either 'Minions' or 'Mechs' to check for either Minions or friendly Entities
+        :param towing: Only use if the scan is being used to scan for towable objects. The default is None,
+        in which case, all squares (including diagonals) are checked. If a Vector is given
+        (the location to which the towing object is moving), then diagonals will not be checked,
+        and the towing direction will also not be checked
         :return: a list of Vectors that represent the positions of the objects found
         """
         squares: List[Vector] = []
-        for x in range(-radius, radius+1):
-            for y in range(-radius, radius+1):
+        for x in range(-radius, radius + 1):
+            for y in range(-radius, radius + 1):
                 if x != 0 or y != 0:
+                    if towing is not None:
+                        if x != 0 and y != 0:
+                            break
+                        elif x == towing[0] and y == towing[1]:
+                            break
                     current_square: Vector = self.position + np.array([x, y])
                     if oob_check(self.board, current_square):
                         if faction == 'Minions':
@@ -317,188 +309,297 @@ class Mech(Entity):
                                 squares.append(current_square)
         return squares
 
-    def blaze(self, level: int) -> Prompt:
-        def executable(mech: Mech, choice: int) -> None:
-            mech.move(mech.orientation, level)
-            mech.damage(mech.position + rotate(mech.orientation, -90))
-            mech.damage(mech.position + rotate(mech.orientation, 90))
-        prompt = Prompt(1, executable)
-        return prompt
+    def move(self, direction: Vector, num_squares: int) -> Prompt | None:
+        """
+        Attempts to move the Mech in a certain direction a certain number of squares.
+        Moving onto a Minion stomps the Minion. Pushing and towing logic is contained as well
+        :param direction: Vector representing the direction in which the movement should occur
+        :param num_squares: number of movement steps
+        :return: None
+        """
+        raise NotImplementedError
 
-    def fuel_tank(self, level: int) -> Prompt:
-        def executable(mech: Mech, choice: int) -> None:
-            match choice:
+    def take_damage(self) -> None:
+        """
+        Draws a damage card -- this will be implemented much later
+        :return: None
+        """
+        pass
+
+    def scythe(self, level: int) -> None:
+
+        def scythe_1(mech_1: Mech, choice_1: int) -> None:
+            """Scans around the mech for targetable minions"""
+            squares_with_minions: List[Vector] = mech_1.scan(1, 'Minions')
+            # if there are fewer minions than the card lets you hit, then there is 1 possible way to deal damage
+            if len(squares_with_minions) < level:
+                damage_combinations: List[tuple[Vector]] = [tuple(squares_with_minions)]
+            else:
+                damage_combinations: List[tuple[Vector]] = list(combinations(squares_with_minions, level))
+            num_damage_combinations: int = len(damage_combinations)
+
+            def scythe_2(mech_2: Mech, choice_2: int) -> None:
+                """Damages a specific set of squares (with Minions) and rotates by a specific angle"""
+                chosen_strike, turn_angle = divmod(num_damage_combinations, choice_2)
+                targeted_squares: List[Vector] = list(damage_combinations[chosen_strike])
+                mech_2.damage_multiple(targeted_squares)
+                match choice_2:
+                    case 0:
+                        mech_2.turn(90)
+                    case 1:
+                        mech_2.turn(-90)
+                    case 2:
+                        mech_2.turn(180)
+                    case 3:
+                        mech_2.turn(0)
+
+            scythe_damage_and_turn = Prompt(num_damage_combinations * (level + 1), scythe_2)
+            mech_1.stack_push(scythe_damage_and_turn)
+
+        scythe_scan = Prompt(1, scythe_1)
+        self.stack_push(scythe_scan)
+
+    def skewer(self, level: int) -> None:
+
+        def skewer_1(mech_1: Mech, choice_1: int) -> None:
+            # implement movement first
+            # mech_1.move(mech_1.orientation, level)
+            raise NotImplementedError
+
+        skewer_command = Prompt(1, skewer_1)
+        self.stack_push(skewer_command)
+
+    def ripsaw(self, level: int) -> None:
+
+        def ripsaw_1(mech_1: Mech, choice_1: int) -> None:
+            # scan for the targets
+            target_squares: List[Vector] = []
+            pointer: Vector = mech_1.position + mech_1.orientation
+            ripsaws_left = level
+            while oob_check(mech_1.board, pointer) and ripsaws_left > 0:
+                curr_square: Tile = mech_1.board[vector_to_tuple(pointer)]
+                if curr_square.has_friendly() or curr_square.has_wall():
+                    break
+                elif curr_square.has_minion():
+                    target_squares.append(pointer.copy())
+                    ripsaws_left -= 1
+                pointer += mech_1.orientation
+            # hit them
+            mech_1.damage_multiple(target_squares)
+
+        ripsaw_command = Prompt(1, ripsaw_1)
+        self.stack_push(ripsaw_command)
+
+    def fuel_tank(self, level: int) -> None:
+
+        def fuel_tank_1(mech_1: Mech, choice_1: int) -> None:
+            match choice_1:
                 case 0:
-                    mech.turn(90)
+                    mech_1.turn(90)
                 case 1:
-                    mech.turn(-90)
+                    mech_1.turn(-90)
                 case 2:
-                    mech.turn(180)
+                    mech_1.turn(180)
                 case 3:
-                    mech.turn(0)
-        prompt = Prompt(level+1, executable)
-        return prompt
+                    mech_1.turn(0)
 
-    def flamespitter(self, level: int) -> Prompt:
-        target_squares: List[Vector] = []
-        pointer: Vector = self.orientation.copy()
-        target_squares.append(pointer.copy())
-        pointer += self.orientation
-        target_squares.append(pointer.copy())
-        if level >= 2:
-            target_squares.append(pointer + rotate(self.orientation, -90))
-            target_squares.append(pointer + rotate(self.orientation, 90))
-            if level == 3:
-                pointer += self.orientation
-                target_squares.append(pointer.copy())
+        fuel_tank_command = Prompt(level + 1, fuel_tank_1)
+        self.stack_push(fuel_tank_command)
+
+    def blaze(self, level: int) -> None:
+
+        def blaze_1(mech_1: Mech, choice_1: int) -> None:
+            # implement movement first
+            # mech_1.move(mech_1.orientation, level)
+            raise NotImplementedError
+
+            def blaze_damage_2(mech_2: Mech, choice_2: int) -> None:
+                """Executes the damage of Blaze (hits the squares to the left and right after the movement)"""
+                left_and_right: List[Vector] = [
+                    mech_2.position + rotate(mech_2.orientation, -90),
+                    mech_2.position + rotate(mech_2.orientation, 90)
+                ]
+                mech_2.damage_multiple(left_and_right)
+
+            blaze_damage_component = Prompt(1, blaze_damage_2)
+            mech_1.stack_push(blaze_damage_component)
+
+        blaze_command = Prompt(1, blaze_1)
+        self.stack_push(blaze_command)
+
+    def flamespitter(self, level: int) -> None:
+
+        def flamespitter_1(mech_1: Mech, choice_1: int) -> None:
+            target_squares: List[Vector] = []
+            pointer: Vector = self.orientation.copy()
+            target_squares.append(pointer.copy())
+            pointer += self.orientation
+            target_squares.append(pointer.copy())
+            if level >= 2:
                 target_squares.append(pointer + rotate(self.orientation, -90))
                 target_squares.append(pointer + rotate(self.orientation, 90))
+                if level == 3:
+                    pointer += self.orientation
+                    target_squares.append(pointer.copy())
+                    target_squares.append(pointer + rotate(self.orientation, -90))
+                    target_squares.append(pointer + rotate(self.orientation, 90))
 
-        def executable(mech: Mech, choice: int) -> None:
-            for square in target_squares:
-                self.damage(square)
-        prompt = Prompt(1, executable)
-        return prompt
+            mech_1.damage_multiple(target_squares)
 
-    def speed(self, level: int) -> Prompt:
-        def executable(choice: int) -> None:
-            match choice:
-                case 0:
-                    self.move(self.orientation, level)
-                case 1:
-                    self.move(self.orientation, level+1)
-                case 2:
-                    self.move(self.orientation, level+2)
-                case 3:
-                    self.move(self.orientation, level+3)
-        prompt = Prompt(level+1, executable)
-        return prompt
+        flamespitter_command = Prompt(1, flamespitter_1)
+        self.stack_push(flamespitter_command)
 
-    def cyclotron(self, level: int) -> Prompt:
-        def executable(choice: int) -> None:
+    def cyclotron(self, level: int) -> None:
+
+        def cyclotron_1(mech_1, choice_1: int) -> None:
+            target_squares: List[Vector] = []
             for i in range(1, level + 1):
-                self.damage(self.position + np.array([i, i]))
-                self.damage(self.position + np.array([-i, i]))
-                self.damage(self.position + np.array([i, -i]))
-                self.damage(self.position + np.array([-i, -i]))
-            match choice:
+                target_squares += [mech_1.position + np.array(coordinate_pair) for coordinate_pair in
+                                   product((-i, i), (-i, i))]
+            mech_1.damage_multiple(target_squares)
+            match choice_1:
                 case 0:
-                    self.turn(90)
+                    mech_1.turn(90)
                 case 1:
-                    self.turn(-90)
+                    mech_1.turn(-90)
                 case 2:
-                    self.turn(180)
+                    mech_1.turn(180)
                 case 3:
-                    self.turn(0)
-        prompt = Prompt(level + 1, executable)
-        return prompt
+                    mech_1.turn(0)
 
-    def chain_lightning(self, level: int) -> Prompt:
-        raise NotImplementedError
-        squares_in_front: List[Vector] = [
-            self.position + self.orientation,
-            self.position + self.orientation + rotate(self.orientation, 90),
-            self.position + self.orientation + rotate(self.orientation, -90)
-        ]
-        chains_left = level*2 - 1
+        cyclotron_command = Prompt(level + 1, cyclotron_1)
+        self.stack_push(cyclotron_command)
 
-        def executable(choice: int) -> Prompt:
-            # search diagonals
-            diagonals: List[Vector] = [
-                self.position + np.array(point) for point in product((-1, 1), (-1, 1))
+    def speed(self, level: int) -> None:
+
+        def speed_1(mech_1: Mech, choice_1: int) -> None:
+            match choice_1:
+                case 0:
+                    # mech_1.move(mech_1.orientation, level)
+                    raise NotImplementedError
+                case 1:
+                    # mech_1.move(mech_1.orientation, level + 1)
+                    raise NotImplementedError
+                case 2:
+                    # mech_1.move(mech_1.orientation, level + 2)
+                    raise NotImplementedError
+                case 3:
+                    # mech_1.move(mech_1.orientation, level + 3)
+                    raise NotImplementedError
+
+        speed_command = Prompt(level + 1, speed_1)
+        self.stack_push(speed_command)
+
+    def chain_lightning(self, level: int) -> None:
+
+        def chain_check(mech: Mech, curr_square: Vector, alr_hit_squares: List[Vector]) -> List[Vector]:
+            """Helper function"""
+            available_chaining_squares: List[Vector] = []
+            diagonals: List[Vector] = [curr_square + np.array(coordinate_pair) for coordinate_pair in
+                                       product((-1, 1), (1, 1))]
+            for square in diagonals:
+                if oob_check(square):
+                    if mech.board[vector_to_tuple(square)].has_minion():
+                        if not any(np.array_equal(square, arr) for arr in alr_hit_squares):
+                            available_chaining_squares.append(square)
+            return available_chaining_squares
+
+        def chain_lightning_1(mech_1: Mech, choice_1: int) -> None:
+            """Scans the 3 squares in front of the Mech for a first target"""
+            squares_in_front: List[Vector] = [
+                mech_1.position + mech_1.orientation,
+                mech_1.position + mech_1.orientation + rotate(mech_1.orientation, -90),
+                mech_1.position + mech_1.orientation + rotate(mech_1.orientation, 90)
             ]
-            can_chain = False
-            for diagonal_square in diagonals:
-                if oob_check(self.board, diagonal_square):
-                    if self.board[vector_to_tuple(diagonal_square)].has_minion():
-                        can_chain = True
-        prompt = Prompt(0, executable)
-        return prompt
 
-    def skewer(self, level: int) -> Prompt:
-        def execute(choice: int) -> None:
-            self.move(self.orientation, level)
-        prompt = Prompt(1, execute)
-        return prompt
+            def chain_lightning_2(mech_2: Mech, choice_2: int, prev_hit_squares: List[Vector],
+                                  avail_squares: List[Vector]) -> None:
+                """Handles chaining"""
+                # early exit if max depth is reached
+                if len(prev_hit_squares) >= level * 2:
+                    mech_2.damage_multiple(prev_hit_squares)
+                    return
+                curr_square: Vector = avail_squares[choice_2]
+                prev_hit_squares_new = prev_hit_squares.copy() + [curr_square]
+                chaining_targets: List[Vector] = chain_check(mech_2, curr_square, prev_hit_squares_new)
+                # early exit if a target to chain to was not found
+                if len(chaining_targets) == 0:
+                    mech_2.damage_multiple(prev_hit_squares_new)
+                    return
+                # otherwise, add the next chain to the function stack
+                num_available_chains: int = len(chaining_targets)
+                next_chain: Callable[[Mech, int], None] = partial(chain_lightning_2,
+                                                                  prev_hit_squares=prev_hit_squares_new,
+                                                                  avail_squares=chaining_targets)
+                next_chain_prompt = Prompt(num_available_chains, next_chain)
+                mech_2.stack_push(next_chain_prompt)
 
-    def scythe(self, level: int) -> Prompt:
-        viable_squares: List[Vector] = self.scan(1, 'Minions')
-        damage_combinations: List[tuple[Vector]] = list(combinations(viable_squares, level))
-        if len(viable_squares) < level:
-            damage_combinations = [tuple(viable_squares)]
-        num_damage_combinations: int = len(damage_combinations)
+            first_square = squares_in_front[choice_1]
+            if oob_check(mech_1.board, first_square):
+                if mech_1.board[vector_to_tuple(first_square)].has_minion():
+                    first_chain_targets: List[Vector] = chain_check(mech_1, first_square, [])
+                    # early exit if unable to chain
+                    if len(first_chain_targets) == 0:
+                        mech_1.damage(first_square)
+                        return
+                    # otherwise, begin the chain process
+                    num_first_available_chains: int = len(first_chain_targets)
+                    first_chain: Callable[[Mech, int], None] = partial(chain_lightning_2, prev_hit_squares=first_square,
+                                                                       avail_squares=first_chain_targets)
+                    first_chain_prompt = Prompt(num_first_available_chains, first_chain)
+                    mech_1.stack_push(first_chain_prompt)
 
-        def executable(choice: int) -> None:
-            chosen_strike, turn_angle = divmod(num_damage_combinations, choice)
-            targeted_squares: Tuple[Vector] = damage_combinations[chosen_strike]
-            for square in targeted_squares:
-                self.damage(square)
-            match choice:
+        chain_lightning_command = Prompt(3, chain_lightning_1)
+        self.stack_push(chain_lightning_command)
+
+    def memory_core(self, level: int) -> None:
+
+        def memory_core_1(mech_1, choice_1: int) -> None:
+            match choice_1:
                 case 0:
-                    self.turn(90)
+                    mech_1.turn(90)
                 case 1:
-                    self.turn(-90)
+                    mech_1.turn(-90)
                 case 2:
-                    self.turn(180)
+                    mech_1.turn(180)
                 case 3:
-                    self.turn(0)
-        prompt = Prompt(num_damage_combinations * (level + 1), executable)
-        return prompt
+                    mech_1.turn(0)
 
-    def ripsaw(self, level: int) -> Prompt:
-        # scan for the targets
-        target_squares: List[Vector] = []
-        pointer: Vector = self.position + self.orientation
-        ripsaws_left = level
-        while oob_check(self.board, pointer) and ripsaws_left > 0:
-            curr_square: Tile = self.board[vector_to_tuple(pointer)]
-            if curr_square.has_friendly() or curr_square.has_wall():
-                break
-            elif curr_square.has_minion():
-                target_squares.append(pointer.copy())
-                ripsaws_left -= 1
-            pointer += self.orientation
+        memory_core_command = Prompt(level + 1, memory_core_1)
+        self.stack_push(memory_core_command)
 
-        def executable(choice: int) -> None:
-            for square in target_squares:
-                self.damage(square)
-        prompt = Prompt(1, executable)
-        return prompt
+    def omnistomp(self, level: int) -> None:
 
-    def omnistomp(self, level: int) -> Prompt:
-        def executable(choice: int) -> None:
-            match choice:
+        def omnistomp_1(mech_1: Mech, choice_1: int) -> None:
+            match choice_1:
                 case 0:
-                    self.move(rotate(self.orientation, -90), level)
+                    raise NotImplementedError
+                    # mech_1.move(rotate(mech_1.orientation, -90), level)
                 case 1:
-                    self.move(self.orientation, level)
+                    raise NotImplementedError
+                    # mech_1.move(mech_1.orientation, level)
                 case 2:
-                    self.move(rotate(self.orientation, 90), level)
-        prompt = Prompt(3, executable)
-        return prompt
+                    raise NotImplementedError
+                    # mech_1.move(rotate(mech_1.orientation, 90), level)
 
-    def memory_core(self, level: int) -> Prompt:
-        def executable(choice: int) -> None:
-            match choice:
-                case 0:
-                    self.turn(90)
-                case 1:
-                    self.turn(-90)
-                case 2:
-                    self.turn(180)
-                case 3:
-                    self.turn(0)
-        prompt = Prompt(level + 1, executable)
-        return prompt
+        omnistomp_command = Prompt(3, omnistomp_1)
+        self.stack_push(omnistomp_command)
 
-    def hexmatic_aimbot(self, level: int) -> Prompt:
-        # scan for targets
-        target_squares: List[Vector] = self.scan(3, 'Minions')
+    def hexmatic_aimbot(self, level: int) -> None:
 
-        def executable(choice: int) -> None:
-            self.damage(target_squares[choice])
-        prompt = Prompt(len(target_squares), executable)
-        return prompt
+        def hexmatic_aimbot_1(mech_1: Mech, choice_1: int) -> None:
+            """Scans for targets"""
+            target_squares: List[Vector] = mech_1.scan(3, 'Minions')
+            num_choices: int = len(target_squares)
+
+            def hexmatic_aimbot_2(mech_2: Mech, choice_2: int) -> None:
+                mech_2.damage(target_squares[choice_2])
+
+            hexmatic_aimbot_damage = Prompt(num_choices, hexmatic_aimbot_2)
+            mech_1.stack_push(hexmatic_aimbot_damage)
+
+        hexmatic_aimbot_scan = Prompt(1, hexmatic_aimbot_1)
+        self.stack_push(hexmatic_aimbot_scan)
 
     translations: Dict[str, Callable[[Mech, int], Prompt | None]] = {
         'Scythe': scythe, 'Skewer': skewer, 'Ripsaw': ripsaw,
@@ -507,8 +608,13 @@ class Mech(Entity):
         'Memory Core': memory_core, 'Omnistomp': omnistomp, 'Hexmatic Aimbot': hexmatic_aimbot
     }
 
-    def execute_command_card(self, slot: int) -> Prompt | None:
-        command_card_string = self.command_line[slot-1][0]
-        command_card_level = self.command_line[slot-1][1]
-        command_card_method = self.translations[command_card_string]
-        return command_card_method(self, command_card_level)
+    def read_command_line(self) -> None:
+        """
+        Translates all of the information on the command line into the actual functions and executes them
+        :return: None
+        """
+        for slot in range(1, 7)[::-1]:
+            command_card_string = self.command_line[slot - 1][0]
+            command_card_level = self.command_line[slot - 1][1]
+            command_card_method: Callable[[Mech, int], None] = self.translations[command_card_string]
+            command_card_method(self, command_card_level)

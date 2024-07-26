@@ -66,7 +66,7 @@ def oob_check(board: Board, location: Vector) -> bool:
 
 class Prompt:
     """Idk what I'm doing"""
-    def __init__(self, num_options: int, executable: Callable[['Mech', int], None | Prompt]):
+    def __init__(self, num_options: int, executable: Callable[['Mech', int], None]):
         """
         This class's sole purpose is to store functions that the engine/player can execute depending on a choice,
         either from the engine or the player
@@ -75,7 +75,7 @@ class Prompt:
         (in the range of num_options) and act accordingly
         """
         self.num_options: int = num_options
-        self.executable: Callable[['Mech', int], None | Prompt] = executable
+        self.executable: Callable[['Mech', int], None] = executable
 
 
 class CustomError(Exception):
