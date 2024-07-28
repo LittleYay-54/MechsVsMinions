@@ -283,7 +283,7 @@ class Bomb(Friendly):
 
 
 class Mech(Friendly):
-    def __init__(self, board: Board, position: Vector, orientation: Vector) -> None:
+    def __init__(self, board: Board, position: Vector, orientation: Vector, name: str) -> None:
         """
         Creates the Mech (initializing the position and orientation), and places it onto the board.
         :param board: the Board object on which the object is placed on
@@ -291,9 +291,11 @@ class Mech(Friendly):
         :param orientation: Vector representing position change after a forward move, read custom_types.py for examples
         """
         super().__init__(board, position, orientation, False)
+        self.name: str = name
         self.command_line: List[List[str, int]] = [['Empty', 1], ['Empty', 1], ['Empty', 1],
                                                    ['Empty', 1], ['Empty', 1], ['Empty', 1]]
         self.prompt_stack: List[Prompt] = []
+        self.board.players.append(self)
 
     def stack_push(self, prompt):
         """Pushes a prompt object to the top of the Mech's prompt stack"""
@@ -697,7 +699,7 @@ class Mech(Friendly):
 
     def read_command_line(self) -> None:
         """
-        Translates all of the information on the command line into the actual functions and executes them
+        Translates all of the information on the command line into prompt objects and pushes them to the prompt stack
         :return: None
         """
         for slot in range(1, 7)[::-1]:

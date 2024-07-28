@@ -111,3 +111,5 @@ print(np.array((94, 44)))
 q = [1, 2]
 w = q
 
+for i in range(1, 2):
+    print(i)

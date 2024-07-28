@@ -1,14 +1,13 @@
 import numpy as np
-from numpy import ndarray, dtype
 from numpy.typing import NDArray
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Tuple, List
 from custom_types import NDArray2D
 
 # This is for static type-checking
 # Your IDE will interpret this as true, but it won't be true at run-time
 # It's only for the type hints in Tile.place_thing()
 if TYPE_CHECKING:
-    from entities import Entity
+    from entities import Entity, Mech
 
 
 class Tile:
@@ -108,6 +107,7 @@ class Board:
         vectorized_create_tile = np.vectorize(create_tile, otypes=[object])
 
         self.board_array: NDArray[Tile] = np.fromfunction(vectorized_create_tile, boardspace.shape, dtype=object)
+        self.players: List['Mech'] = []
 
     def __getitem__(self, index: Tuple[int, int]) -> Tile:
         """
@@ -119,3 +119,16 @@ class Board:
         # idk why
         return self.board_array[index]
 
+    def count_minions(self) -> int:
+        """
+        Counts the minions currently on the board
+        :return: the number of minions
+        """
+        # supposedly this lazy import helps solve the circular import problem
+        from entities import Minion
+
+        count = 0
+        for tile in np.nditer(self.board_array):
+            if isinstance(tile.thing, Minion):
+                count += 1
+        return count

@@ -41,13 +41,11 @@ def initialize_starting_board(board: Board, minion_squares: Matrix, oil_squares:
             board[vector_to_tuple(oil_coordinate)].spill_oil()
 
 
-players: List[Mech] = []
-
-
-def place_player_mechs(board: Board, playing_mechs: List[Mech]) -> None:
-    """Place player mechs"""
-    for item in playing_mechs:
-        players.append(item)
+# this shouldn't be necessary anymore since instantiating Mechs already does this I think
+# def place_player_mechs(board: Board, playing_mechs: List[Mech]) -> None:
+#     """Place player mechs"""
+#     for mech in playing_mechs:
+#         board.players.append(mech)
 
 
 # -- Gameplay --
@@ -56,40 +54,29 @@ def place_player_mechs(board: Board, playing_mechs: List[Mech]) -> None:
 # 1. Draft Command Cards, 2. Slot Command Cards, 3. Execute Command Lines
 # 4. Minions Move, 5. Minions Spawn, 6. Minions Attack
 
-def draft():
+def draft(board: Board):
     """Deal out Command Cards, let players pick Command Cards"""
     raise NotImplementedError
 
 
-def slot_cards():
+def slot_cards(board: Board):
     """Let players slot Command Cards"""
     raise NotImplementedError
 
 
-def players_move() -> None:
+def players_move(board: Board) -> None:
     """
     Players execute their command lines in order
     :return: None
     """
-    def execute_command_line(player: Mech):
-        for slot in range(1, 7):
-            possible_prompt: Prompt | None = player.execute_command_card(slot)
-            while isinstance(possible_prompt, Prompt):
-                if possible_prompt.num_options == 1:
-                    possible_prompt = possible_prompt.executable(player, 0)
-                else:
-                    # raise the input field
-                    choice: int = int(input(f"Please select a choice (1-{possible_prompt.num_options}"))
-                    possible_prompt = possible_prompt.executable(player, choice-1)
-
-    for player in players:
-        execute_command_line(player)
+    # for player in board.players:
+    #     execute_command_line(player)
+    raise NotImplementedError
 
 
-def rotate_hourglass() -> None:
+def rotate_hourglass(board: Board) -> None:
     """
     Shifts the order of the players by 1 upward, with the first player going to the back
     :return: None
     """
-    global players
-    players: list[Mech] = players[1:] + players[:1]
+    board.players = board.players[1:] + board.players[:1]
