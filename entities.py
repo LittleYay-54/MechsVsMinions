@@ -53,11 +53,12 @@ class Entity(ABC):
         self.position = ending_position
 
     @abstractmethod
-    def move(self, direction: Vector, num_squares: int) -> None:
+    def move(self, direction: Vector, num_squares: int, pushed: Optional[Entity] = None) -> None:
         """
         Entities (really just Mechs, the Bomb, Minions, and the Boss) can move
         :param direction: Vector representing the direction in which the movement should occur
         :param num_squares: number of movement steps
+        :param pushed: indicates if this movement was due to pushing -- input the Entity which did the pushing if so
         :return: None
         """
         ...
@@ -117,7 +118,7 @@ class Wall(Entity):
         super().__init__(board, position, orientation, 'Neutral')
         self.is_spiked = is_spiked
 
-    def move(self, direction: Vector, num_squares: int) -> None:
+    def move(self, direction: Vector, num_squares: int, pushed: Optional[Entity] = False) -> None:
         """
         Have to implement this abstract method -- Walls can't move
         :return: None
@@ -142,11 +143,12 @@ class Minion(Entity):
         default_orientation = np.array([1, 0])  # filler
         super().__init__(board, position, default_orientation, 'Minions')
 
-    def move(self, direction: Vector, num_squares: int) -> None:
+    def move(self, direction: Vector, num_squares: int, pushed: Optional[Entity] = None) -> None:
         """
         Attempts to move the Minion a certain number of squares in a certain direction.
         :param direction: Vector representing the direction in which the movement should occur
         :param num_squares: number of movement steps
+        :param pushed: as far as I know, Minions can't be pushed, so this shouldn't be relevant
         :return: None
         """
         remaining_moves = num_squares
@@ -172,7 +174,75 @@ class Minion(Entity):
         self.board[vector_to_tuple(self.position)].remove_thing()
 
 
-class Bomb(Entity):
+class Friendly(Entity):
+    """Friendly Entities -- i.e., Mechs and the Bomb"""
+    def __init__(self, board: Board, position: Vector, orientation: Vector, is_bomb: bool) -> None:
+        """is_bomb makes the Entity take damage upon stomping bombs"""
+        super().__init__(board, position, orientation, 'Mechs')
+        self.is_bomb: bool = is_bomb
+
+    @abstractmethod
+    def move(self, direction: Vector, num_squares: int, pushed: Optional[Entity] = None) -> None:
+        """Implement separately for Mechs and the Bomb"""
+        pass
+
+    @abstractmethod
+    def take_damage(self):
+        """Implement separately for Mechs and the Bomb"""
+        pass
+
+    def can_move(self, curr_square: Vector, direction: Vector) -> bool:
+        """Checks if a move wouldn't be obstructed"""
+        next_square: Vector = curr_square + direction
+        if oob_check(self.board, next_square):
+            if self.board[vector_to_tuple(next_square)].has_wall():
+                return False
+            # if there is a friendly Entity blocking, check if it can be pushed via recursion
+            if self.board[vector_to_tuple(next_square)].has_friendly():
+                return self.can_move(next_square, direction)
+            else:
+                return True
+        else:
+            return False
+
+    def movement_logic(self, direction: Vector) -> bool:
+        """The main reason for this subclass -- this method just moves the object 1 square in a direction,
+        accounting for Minion stomping and pushing. Returns True if the object successfully moved, False if it couldn't"""
+        starting_position: Vector = self.position.copy()
+        tentative_position: Vector = self.position + direction
+        if self.can_move(starting_position, direction):
+            # if the space is not occupied, just move
+            if self.board[vector_to_tuple(tentative_position)].is_empty():
+                # remove from current location, move to new location
+                self.raw_move(starting_position, tentative_position)
+            # if the space ahead has a Mech, then push it
+            elif self.board[vector_to_tuple(tentative_position)].has_friendly():
+                # push the thing
+                self.board[vector_to_tuple(tentative_position)].thing.move(direction, 1, self)
+                # remove from current location, move to new location
+                self.raw_move(starting_position, tentative_position)
+                # blocking is already dealt with via self.can_move()
+            # if the space ahead has a Minion, then stomp it, and take damage if the Entity is a Bomb
+            elif self.board[vector_to_tuple(tentative_position)].has_minion():
+                # kill the minion
+                self.board[vector_to_tuple(tentative_position)].thing.take_damage()
+                # take damage if the Entity is a Bomb
+                if self.is_bomb:
+                    self.take_damage()
+                # move there
+                self.raw_move(starting_position, tentative_position)
+
+            # if successfully moved and now on oil, attempt to move again
+            if self.board[vector_to_tuple(self.position)].is_oiled():
+                self.movement_logic(direction)
+
+            return True
+
+        else:
+            return False
+
+
+class Bomb(Friendly):
     """the Bomb -- has HP; is friendly but doesn't do much"""
 
     def __init__(self, board: Board, position: Vector, health: int) -> None:
@@ -184,46 +254,24 @@ class Bomb(Entity):
         :param health: amount of HP the bomb starts with
         """
         default_orientation = np.array([1, 0])  # filler
-        super().__init__(board, position, default_orientation, 'Mechs')
+        super().__init__(board, position, default_orientation, True)
         self.health: int = health
 
-    def move(self, direction: Vector, num_squares: int) -> None:
+    def move(self, direction: Vector, num_squares: int, pushed: Optional[Entity] = None) -> None:
         """
         Attempts to move the Bomb in a direction a certain number of squares.
         This only occurs due to a Mech pushing it (not towing it).
         If the bomb tries to move onto a Minion, it stomps the Minion, killing it, but also taking 1 damage.
         :param direction: Vector representing the direction in which the movement should occur
         :param num_squares: number of movement steps
+        :param pushed: If the movement was due to pushing, input the Entity which did the pushing, otherwise, input nothing
         :return: None
         """
-        remaining_moves = num_squares
-        starting_position = self.position
+        remaining_moves: int = num_squares
         while remaining_moves > 0:
-            tentative_position = self.position + direction
-            if oob_check(self.board, tentative_position):
-                # if the space is not occupied, just move
-                if self.board[vector_to_tuple(tentative_position)].is_empty():
-                    # remove from current location, move to new location
-                    self.raw_move(starting_position, tentative_position)
-                # if the space ahead has a Mech, then push it
-                elif self.board[vector_to_tuple(tentative_position)].has_friendly():
-                    # push the thing
-                    self.board[vector_to_tuple(tentative_position)].thing.move(direction, 1)
-                    # if it didn't get pushed into the edge, the space ahead should be empty, so move there
-                    if self.board[vector_to_tuple(tentative_position)].is_empty():
-                        # remove from current location, move to new location
-                        self.raw_move(starting_position, tentative_position)
-                # if the space ahead has a Minion, then stomp it, and take damage
-                elif self.board[vector_to_tuple(tentative_position)].has_minion():
-                    # kill the minion
-                    self.board[vector_to_tuple(tentative_position)].thing.take_damage()
-                    # take damage
-                    self.take_damage()
-                    # move there
-                    self.raw_move(starting_position, tentative_position)
-                # if the space has a wall, then do nothing
-                elif self.board[vector_to_tuple(tentative_position)].has_wall():
-                    pass
+            successfully_moved: bool = self.movement_logic(direction)
+            if not successfully_moved:
+                break
             remaining_moves -= 1
 
     def take_damage(self) -> None:
@@ -234,7 +282,7 @@ class Bomb(Entity):
         self.health -= 1
 
 
-class Mech(Entity):
+class Mech(Friendly):
     def __init__(self, board: Board, position: Vector, orientation: Vector) -> None:
         """
         Creates the Mech (initializing the position and orientation), and places it onto the board.
@@ -242,7 +290,7 @@ class Mech(Entity):
         :param position: Vector representing (x,y) coordinates, except 0-indexed
         :param orientation: Vector representing position change after a forward move, read custom_types.py for examples
         """
-        super().__init__(board, position, orientation, 'Mechs')
+        super().__init__(board, position, orientation, False)
         self.command_line: List[List[str, int]] = [['Empty', 1], ['Empty', 1], ['Empty', 1],
                                                    ['Empty', 1], ['Empty', 1], ['Empty', 1]]
         self.prompt_stack: List[Prompt] = []
@@ -309,22 +357,70 @@ class Mech(Entity):
                                 squares.append(current_square)
         return squares
 
-    def move(self, direction: Vector, num_squares: int) -> Prompt | None:
+    def move(self, direction: Vector, num_squares: int, pushed: Optional[Entity] = None) -> None:
         """
         Attempts to move the Mech in a certain direction a certain number of squares.
-        Moving onto a Minion stomps the Minion. Pushing and towing logic is contained as well
+        Moving onto a Minion stomps the Minion. Pushing and towing logic is contained as well.
+        Works by pushing movement commands onto the prompt stack
         :param direction: Vector representing the direction in which the movement should occur
         :param num_squares: number of movement steps
+        :param pushed: If the movement was due to pushing, input the Entity which did the pushing, otherwise, input nothing
         :return: None
         """
-        raise NotImplementedError
+
+        remaining_moves: int = num_squares
+        # If the Mech was pushed, just move, ignoring any towing checks
+        if pushed:
+            while remaining_moves > 0:
+                successfully_moved: bool = self.movement_logic(direction)
+                if not successfully_moved:
+                    break
+                remaining_moves -= 1
+            return
+
+        def move_1(mech_1: Mech, choice_1: int, remaining_moves_1: int) -> None:
+            """Scans for towable objects"""
+            if remaining_moves_1 == 0:
+                return
+            if not mech_1.can_move(mech_1.position, direction):
+                return
+            towable_objects_positions: List[Vector] = []
+            if remaining_moves_1 >= 2:
+                towable_objects_positions = mech_1.scan(1, 'Mechs', direction)
+            num_choices_1: int = len(towable_objects_positions) + 1
+
+            def move_2(mech_2: Mech, choice_2: int, remaining_moves_2: int) -> None:
+                """Move and then tow the desired object (or not)"""
+                # only tow if the movement is actually successful
+                mech_2.movement_logic(direction)
+                towing_destination: Vector = mech_2.position - direction
+                # the first choice implies no towing
+                if choice_2 == 0:
+                    no_towing: Callable[[Mech, int], None] = partial(move_1, remaining_moves_1=remaining_moves_2-1)
+                    pure_move_completed: Prompt = Prompt(1, no_towing)
+                    mech_2.stack_push(pure_move_completed)
+                elif choice_2 != 0:
+                    towed_object_location: Vector = towable_objects_positions[choice_2 - 1]
+                    towed_object: Entity = mech_2.board[vector_to_tuple(towed_object_location)].thing
+                    towed_object.raw_move(towed_object_location, towing_destination)
+                    towing: Callable[[Mech, int], None] = partial(move_1, remaining_moves_1=remaining_moves_2-2)
+                    towing_move_completed: Prompt = Prompt(1, towing)
+                    mech_2.stack_push(towing_move_completed)
+
+            tow_plus_move: Callable[[Mech, int], None] = partial(move_2, remaining_moves_2=remaining_moves_1)
+            towing_prompt: Prompt = Prompt(num_choices_1, tow_plus_move)
+            mech_1.stack_push(towing_prompt)
+
+        begin_movement_chain: Callable[[Mech, int], None] = partial(move_1, remaining_moves_1=remaining_moves)
+        begin_movement_chain_prompt: Prompt = Prompt(1, begin_movement_chain)
+        self.stack_push(begin_movement_chain_prompt)
 
     def take_damage(self) -> None:
         """
         Draws a damage card -- this will be implemented much later
         :return: None
         """
-        pass
+        raise NotImplementedError
 
     def scythe(self, level: int) -> None:
 
@@ -362,9 +458,7 @@ class Mech(Entity):
     def skewer(self, level: int) -> None:
 
         def skewer_1(mech_1: Mech, choice_1: int) -> None:
-            # implement movement first
-            # mech_1.move(mech_1.orientation, level)
-            raise NotImplementedError
+            mech_1.move(mech_1.orientation, level)
 
         skewer_command = Prompt(1, skewer_1)
         self.stack_push(skewer_command)
@@ -409,11 +503,8 @@ class Mech(Entity):
     def blaze(self, level: int) -> None:
 
         def blaze_1(mech_1: Mech, choice_1: int) -> None:
-            # implement movement first
-            # mech_1.move(mech_1.orientation, level)
-            raise NotImplementedError
 
-            def blaze_damage_2(mech_2: Mech, choice_2: int) -> None:
+            def blaze_2_damage(mech_2: Mech, choice_2: int) -> None:
                 """Executes the damage of Blaze (hits the squares to the left and right after the movement)"""
                 left_and_right: List[Vector] = [
                     mech_2.position + rotate(mech_2.orientation, -90),
@@ -421,8 +512,11 @@ class Mech(Entity):
                 ]
                 mech_2.damage_multiple(left_and_right)
 
-            blaze_damage_component = Prompt(1, blaze_damage_2)
+            blaze_damage_component = Prompt(1, blaze_2_damage)
+
+            # places the damage below the movement
             mech_1.stack_push(blaze_damage_component)
+            mech_1.move(mech_1.orientation, level)
 
         blaze_command = Prompt(1, blaze_1)
         self.stack_push(blaze_command)
@@ -475,17 +569,13 @@ class Mech(Entity):
         def speed_1(mech_1: Mech, choice_1: int) -> None:
             match choice_1:
                 case 0:
-                    # mech_1.move(mech_1.orientation, level)
-                    raise NotImplementedError
+                    mech_1.move(mech_1.orientation, level)
                 case 1:
-                    # mech_1.move(mech_1.orientation, level + 1)
-                    raise NotImplementedError
+                    mech_1.move(mech_1.orientation, level + 1)
                 case 2:
-                    # mech_1.move(mech_1.orientation, level + 2)
-                    raise NotImplementedError
+                    mech_1.move(mech_1.orientation, level + 2)
                 case 3:
-                    # mech_1.move(mech_1.orientation, level + 3)
-                    raise NotImplementedError
+                    mech_1.move(mech_1.orientation, level + 3)
 
         speed_command = Prompt(level + 1, speed_1)
         self.stack_push(speed_command)
@@ -573,14 +663,11 @@ class Mech(Entity):
         def omnistomp_1(mech_1: Mech, choice_1: int) -> None:
             match choice_1:
                 case 0:
-                    raise NotImplementedError
-                    # mech_1.move(rotate(mech_1.orientation, -90), level)
+                    mech_1.move(rotate(mech_1.orientation, -90), level)
                 case 1:
-                    raise NotImplementedError
-                    # mech_1.move(mech_1.orientation, level)
+                    mech_1.move(mech_1.orientation, level)
                 case 2:
-                    raise NotImplementedError
-                    # mech_1.move(rotate(mech_1.orientation, 90), level)
+                    mech_1.move(rotate(mech_1.orientation, 90), level)
 
         omnistomp_command = Prompt(3, omnistomp_1)
         self.stack_push(omnistomp_command)

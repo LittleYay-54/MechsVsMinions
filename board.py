@@ -28,6 +28,13 @@ class Tile:
         """
         self.oil = True
 
+    def is_oiled(self) -> bool:
+        """
+        checks if the Tile is oiled
+        :return: True if the Tile has oil, false otherwise
+        """
+        return self.oil
+
     def place_thing(self, thing: 'Entity') -> None:
         """
         places an Entity on the tile

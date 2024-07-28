@@ -107,3 +107,7 @@ append_to_list(new_list, 15)
 print(new_list)
 
 print(np.array((94, 44)))
+
+q = [1, 2]
+w = q
+
