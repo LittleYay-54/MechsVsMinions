@@ -29,6 +29,7 @@ def win_check(board: Board) -> bool:
 def engine(board: Board, mech: Mech) -> None:
     """Good Luck"""
     # DFS
+    mech.read_command_line()
     mech_stack: List[Mech] = [mech]
     while mech_stack:
         curr_mech: Mech = mech_stack.pop()

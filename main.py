@@ -12,3 +12,16 @@ if __name__ == '__main__':
 
     # you can try to run the engine for each of these, but there are probably a morbillion bugs
     # i'll look at them later unless you can figure out how to fix the code
+
+    # mech_list: List[Mech] = []
+    # for basis_list in basis_list_output:
+        # make board
+        # make mech
+        # mech.modify_command_line()
+        # mech.modify_command_line()
+        # mech.modify_command_line()
+        # mech.modify_command_line()
+        # mech.modify_command_line()
+        # mech.modify_command_line()
+        # append mech to mech_list
+
