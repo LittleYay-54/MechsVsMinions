@@ -78,8 +78,9 @@ class Entity(ABC):
         :return: None
         """
         if oob_check(self.board, target_square):
-            if self.faction != self.board[vector_to_tuple(target_square)].thing.faction:
-                self.board[vector_to_tuple(target_square)].thing.take_damage()
+            if not self.board[vector_to_tuple(target_square)].is_empty():
+                if self.faction != self.board[vector_to_tuple(target_square)].thing.faction:
+                    self.board[vector_to_tuple(target_square)].thing.take_damage()
 
     def damage_multiple(self, target_squares: List[Vector]) -> None:
         """

@@ -30,6 +30,7 @@ def win_check(board: Board) -> bool:
 
 def engine(board: Board, mech: Mech) -> None:
     """Good Luck"""
+    # prompt_number = 1
     # DFS
     mech.read_command_line()
     mech_stack: List[Mech] = [mech]
@@ -40,13 +41,19 @@ def engine(board: Board, mech: Mech) -> None:
         for i in range(1, top_prompt.num_options)[::-1]:
             copy_mech: Mech = deepcopy(curr_mech)
             top_prompt.executable(copy_mech, i)
+            # print(f'A prompt was executed. #{prompt_number}')
+            # prompt_number += 1
             if not copy_mech.prompt_stack:
-                win_check(copy_mech.board)
+                if win_check(copy_mech.board):
+                    print(copy_mech.name, copy_mech.command_line)
             else:
                 mech_stack.append(copy_mech)
 
         top_prompt.executable(curr_mech, 0)
+        # print(f'A prompt was executed. #{prompt_number}')
+        # prompt_number += 1
         if not curr_mech.prompt_stack:
-            win_check(curr_mech.board)
+            if win_check(curr_mech.board):
+                print(curr_mech.name, curr_mech.command_line)
         else:
             mech_stack.append(curr_mech)

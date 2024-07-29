@@ -7,6 +7,8 @@ from board import Board
 from game_flow import initialize_starting_board
 from copy import deepcopy
 from engine import engine
+from itertools import permutations
+
 
 if __name__ == '__main__':
     # Anson do your thing here
@@ -22,7 +24,7 @@ if __name__ == '__main__':
     # for basis_list in generate(['Blaze', 'Cyclotron', 'Flamespitter', 'Omnistomp', 'Omnistomp', 'Skewer', 'Speed'], [5]):
     #   make mechs with specific cmd lines here
 
-    board: Board = Board(np.zeros((6, 6)))
+    base_board: Board = Board(np.zeros((6, 6)))
     starting_minions: Matrix = np.array(
         [
             [0, 2],
@@ -41,27 +43,36 @@ if __name__ == '__main__':
             [3, 3]
         ]
     )
-    initialize_starting_board(board, starting_minions, starting_oil)
+    initialize_starting_board(base_board, starting_minions, starting_oil)
 
-    Tristana_1 = Mech(board, np.array([4, 4]), np.array([1, 0]), 'Right')
-    Tristana_1.modify_command_line(1, 'Blaze', 2)
-    Tristana_1.modify_command_line(1, 'Omnistomp')
-    Tristana_1.modify_command_line(1, 'Skewer')
-    Tristana_1.modify_command_line(1, 'Cyclotron')
-    Tristana_1.modify_command_line(1, 'Speed')
-    Tristana_1.modify_command_line(1, 'Omnistomp')
-    Tristana_2 = deepcopy(Tristana_1)
-    Tristana_2.turn(90)
-    Tristana_2.name = 'Up'
-    Tristana_3 = deepcopy(Tristana_2)
-    Tristana_3.turn(90)
-    Tristana_3.name = 'Left'
-    Tristana_4 = deepcopy(Tristana_3)
-    Tristana_4.turn(90)
-    Tristana_4.name = 'Down'
+    command_lines = []
+    for basis_list in generate(['Blaze', 'Cyclotron', 'Flamespitter', 'Omnistomp', 'Omnistomp', 'Skewer', 'Speed'], [6]):
+        command_lines += permutations(basis_list)
 
-    Tristanas: List[Mech] = [Tristana_1, Tristana_2, Tristana_3, Tristana_4]
+    Tristanas = []
+    for cmd_line in command_lines:
+        Right_Tristana = Mech(deepcopy(base_board), np.array([4, 4]), np.array([1, 0]), 'Right')
+        for i in range(len(cmd_line)):
+            if cmd_line[i] in {'Blaze', 'Cyclotron', 'Flamespitter', 'Omnistomp', 'Skewer', 'Speed'}:
+                Right_Tristana.modify_command_line(i, cmd_line[i])
+            else:
+                level = int(cmd_line[i][-1])
+                command = cmd_line[i][:-1]
+                Right_Tristana.modify_command_line(i, command, level)
+        Up_Tristana = deepcopy(Right_Tristana)
+        Up_Tristana.turn(90)
+        Up_Tristana.name = 'Up'
+        Left_Tristana = deepcopy(Up_Tristana)
+        Left_Tristana.turn(90)
+        Left_Tristana.name = 'Left'
+        Down_Tristana = deepcopy(Left_Tristana)
+        Down_Tristana.turn(90)
+        Down_Tristana.name = 'Down'
+        Tristanas += [Right_Tristana, Up_Tristana, Left_Tristana, Down_Tristana]
 
-
+    trist_num = 0
     for Tristana in Tristanas:
         engine(Tristana.board, Tristana)
+        trist_num += 1
+        print(f"A Tristana has been resolved. #{trist_num}")
+
