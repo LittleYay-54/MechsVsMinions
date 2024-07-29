@@ -49,13 +49,26 @@ class Tile:
         """
         self.thing = None
 
+    def is_empty(self) -> bool:
+        """
+        checks if the Tile doesn't have any Entity on it
+        :return: True if there's nothing on the Tile, false otherwise
+        """
+        if self.thing is None:
+            return True
+        else:
+            return False
+
     def has_minion(self) -> bool:
         """
         checks if the Tile has a Minion on it
         :return: True if there's a Minion, false otherwise
         """
-        if self.thing.faction == 'Minions':
-            return True
+        if not self.is_empty():
+            if self.thing.faction == 'Minions':
+                return True
+            else:
+                return False
         else:
             return False
 
@@ -64,8 +77,11 @@ class Tile:
         checks if the Tile has a friendly Entity on it (i.e. Mech or Bomb)
         :return: True if there's a Mech or Bomb, false otherwise
         """
-        if self.thing.faction == 'Mechs':
-            return True
+        if not self.is_empty():
+            if self.thing.faction == 'Mechs':
+                return True
+            else:
+                return False
         else:
             return False
 
@@ -74,18 +90,11 @@ class Tile:
         checks if the Tile has a Wall on it
         :return: True if there's a Wall, false otherwise
         """
-        if self.thing.faction == 'Neutral':
-            return True
-        else:
-            return False
-
-    def is_empty(self) -> bool:
-        """
-        checks if the Tile doesn't have any Entity on it
-        :return: True if there's nothing on the Tile, false otherwise
-        """
-        if self.thing is None:
-            return True
+        if not self.is_empty():
+            if self.thing.faction == 'Neutral':
+                return True
+            else:
+                return False
         else:
             return False
 
@@ -119,16 +128,3 @@ class Board:
         # idk why
         return self.board_array[index]
 
-    def count_minions(self) -> int:
-        """
-        Counts the minions currently on the board
-        :return: the number of minions
-        """
-        # supposedly this lazy import helps solve the circular import problem
-        from entities import Minion
-
-        count = 0
-        for tile in np.nditer(self.board_array):
-            if isinstance(tile.thing, Minion):
-                count += 1
-        return count

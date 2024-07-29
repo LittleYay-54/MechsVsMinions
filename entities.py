@@ -3,7 +3,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from board import Tile, Board
 from custom_types import Vector
-from typing import Optional, List, Dict, Callable
+from typing import Optional, List, Dict, Callable, Tuple
 from auxiliary_functions import vector_to_tuple, oob_check, rotate, Prompt, CustomError
 from itertools import combinations, product
 from functools import partial
@@ -292,8 +292,14 @@ class Mech(Friendly):
         """
         super().__init__(board, position, orientation, False)
         self.name: str = name
-        self.command_line: List[List[str, int]] = [['Empty', 1], ['Empty', 1], ['Empty', 1],
-                                                   ['Empty', 1], ['Empty', 1], ['Empty', 1]]
+        self.command_line: List[Tuple[str, int]] = [
+            ('Empty', 1),
+            ('Empty', 1),
+            ('Empty', 1),
+            ('Empty', 1),
+            ('Empty', 1),
+            ('Empty', 1)
+        ]
         self.prompt_stack: List[Prompt] = []
         self.board.players.append(self)
 
@@ -324,9 +330,9 @@ class Mech(Friendly):
             new_level: int = self.command_line[slot - 1][1] + level
             if new_level > 3:
                 new_level = 3
-            self.command_line[slot - 1] = [card, new_level]
+            self.command_line[slot - 1] = (card, new_level)
         else:
-            self.command_line[slot - 1] = [card, level]
+            self.command_line[slot - 1] = (card, level)
 
     def scan(self, radius: int, faction: str, towing: Optional[Vector] = None) -> List[Vector]:
         """
@@ -509,8 +515,8 @@ class Mech(Friendly):
             def blaze_2_damage(mech_2: Mech, choice_2: int) -> None:
                 """Executes the damage of Blaze (hits the squares to the left and right after the movement)"""
                 left_and_right: List[Vector] = [
-                    mech_2.position + rotate(mech_2.orientation, -90),
-                    mech_2.position + rotate(mech_2.orientation, 90)
+                    mech_2.position + rotate(mech_2.orientation, 90),
+                    mech_2.position + rotate(mech_2.orientation, -90)
                 ]
                 mech_2.damage_multiple(left_and_right)
 
@@ -665,11 +671,11 @@ class Mech(Friendly):
         def omnistomp_1(mech_1: Mech, choice_1: int) -> None:
             match choice_1:
                 case 0:
-                    mech_1.move(rotate(mech_1.orientation, -90), level)
+                    mech_1.move(rotate(mech_1.orientation, 90), level)
                 case 1:
                     mech_1.move(mech_1.orientation, level)
                 case 2:
-                    mech_1.move(rotate(mech_1.orientation, 90), level)
+                    mech_1.move(rotate(mech_1.orientation, -90), level)
 
         omnistomp_command = Prompt(3, omnistomp_1)
         self.stack_push(omnistomp_command)
@@ -694,12 +700,13 @@ class Mech(Friendly):
         'Scythe': scythe, 'Skewer': skewer, 'Ripsaw': ripsaw,
         'Fuel Tank': fuel_tank, 'Blaze': blaze, 'Flamespitter': flamespitter,
         'Cyclotron': cyclotron, 'Speed': speed, 'Chain Lightning': chain_lightning,
-        'Memory Core': memory_core, 'Omnistomp': omnistomp, 'Hexmatic Aimbot': hexmatic_aimbot
+        'Memory Core': memory_core, 'Omnistomp': omnistomp, 'Hexmatic Aimbot': hexmatic_aimbot,
+        'Empty': lambda x, y: None
     }
 
     def read_command_line(self) -> None:
         """
-        Translates all of the information on the command line into prompt objects and pushes them to the prompt stack
+        Translates all the information on the command line into prompt objects and pushes them to the prompt stack
         :return: None
         """
         for slot in range(1, 7)[::-1]:

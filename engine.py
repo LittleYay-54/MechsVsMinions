@@ -3,6 +3,7 @@ from entities import Mech
 from typing import List
 from auxiliary_functions import Prompt
 from copy import deepcopy
+from game_flow import count_minions
 
 
 # The engine logic shall be contained here.
@@ -19,12 +20,13 @@ def win_check(board: Board) -> bool:
     :param board: the game board
     :return: True if completed, False if failed
     """
-    if board.count_minions() == 0:
+    if count_minions(board) == 0:
         # here check if the bomb is on the repair pad
         print("A winning line was found")
         return True
     else:
         return False
+
 
 def engine(board: Board, mech: Mech) -> None:
     """Good Luck"""

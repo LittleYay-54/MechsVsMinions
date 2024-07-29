@@ -1,3 +1,4 @@
+import numpy as np
 from auxiliary_functions import vector_to_tuple, oob_check, Prompt
 from typing import List
 from custom_types import Matrix
@@ -80,3 +81,15 @@ def rotate_hourglass(board: Board) -> None:
     :return: None
     """
     board.players = board.players[1:] + board.players[:1]
+
+
+def count_minions(board: Board) -> int:
+    """
+    Counts the minions currently on the board
+    :return: the number of minions
+    """
+    count = 0
+    for index, tile in np.ndenumerate(board.board_array):
+        if tile.has_minion():
+            count += 1
+    return count
