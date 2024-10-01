@@ -1,7 +1,7 @@
 import numpy as np
-from auxiliary import CVec, TwoXN
+from auxiliary import CVec, TwoXN, rotate
 
-a = [[1, 2], [3, 4]]
+a = CVec((1, 1))
+a = rotate(a, 90)
 
-squares = TwoXN(a)
-print(squares)
+print(a)
