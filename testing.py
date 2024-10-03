@@ -1,7 +1,7 @@
 import numpy as np
-from auxiliary import CVec, TwoXN, rotate
+from board import *
 
-a = CVec((1, 1))
-a = rotate(a, 90)
+fivebysix = np.zeros((20, 10), dtype=int)
+board = Board(fivebysix)
+print(board)
 
-print(a)
